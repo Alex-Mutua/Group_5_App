@@ -1,11 +1,12 @@
+
 import streamlit as st
 import pandas as pd
 from bs4 import BeautifulSoup as bs
-import requests
 import plotly.express as px
+import requests
 import matplotlib.pyplot as plt
 import numpy as np
-import streamlit.components.v1 as components
+import streamlit.components.v1 as components  # <-- Import components
 
 # Function to style the app with a professional gradient background
 def add_background():
@@ -25,16 +26,6 @@ def add_background():
         }
         h3 {
             color: #495057; /* Darker gray for subheadings */
-        }
-        /* Custom styles to increase font size and make labels bold in sidebar */
-        .sidebar .sidebar-content h1 {
-            color: white !important; /* Make the 'User Input Features' header white */
-        }
-        .sidebar select, .sidebar .stSelectbox, .sidebar .stRadio {
-            font-size: 18px;  /* Increase font size for options */
-        }
-        .sidebar .sidebar-content {
-            font-size: 20px;  /* Increase font size for general text */
         }
         </style>
         """,
@@ -108,17 +99,17 @@ def load_apartment_data(url_template, page):
                 'Price': price,
                 'ImageLink': image_link
             })
-        except:
-             pass
+        except Exception as e:
+            print(f"Error: {e}")
 
     return pd.DataFrame(data)
 
-# Sidebar for user input with custom HTML for bold labels and larger font
+# Sidebar for user input
 st.sidebar.markdown("<h1 style='color: white;'>The User Input Features</h1>", unsafe_allow_html=True)
 
-# Category selector with bold label
+# Category selector
 category = st.sidebar.selectbox(
-    '**Select Category**',
+    'Select Category',
     ['Rental Apartment', 'Furnished Apartments', 'Land For Sale']
 )
 
@@ -130,43 +121,51 @@ elif category == 'Furnished Apartments':
 else:
     page_range = range(1, 50)  # Pages 1 to 49 for Land For Sale
 
-# Page index selector with bold label
-Pages = st.sidebar.selectbox('**Page Index**', list(page_range))
+Pages = st.sidebar.selectbox('Page Index', list(page_range))
 
-# User action selector with bold label
+# User action selector
 Choices = st.sidebar.selectbox(
-    '**Options**',
-    ['Scrape the data using BeautifulSoup', 'Download the scraped data', 'Dashboard of the data','Please Fill the app form']
+    'Options',
+    ['Scrape the data using BeautifulSoup', 'Download the scraped data', 'Dashboard of the data(clean)', 'Please fill the app form']
 )
 
 # Main application logic
 if Choices == 'Scrape the data using BeautifulSoup':
     if category == 'Rental Apartment':
-        data = load_apartment_data('https://www.expat-dakar.com/appartements-a-louer?page={page}', Pages)
-        load(data, 'Rental Apartment', '1', '101')
+        with st.spinner('Scraping Rental Apartment data, please wait...'):
+            data = load_apartment_data('https://www.expat-dakar.com/appartements-a-louer?page={page}', Pages)
+            load(data, 'Rental Apartment', '1', '101')
     elif category == 'Furnished Apartments':
-        data = load_apartment_data('https://www.expat-dakar.com/appartements-meubles?page={page}', Pages)
-        st.spinner(f"Scraping {category} data, please wait...")
-        load(data, 'Furnished Apartments', '2', '102')
+        with st.spinner('Scraping Furnished Apartments data, please wait...'):
+            data = load_apartment_data('https://www.expat-dakar.com/appartements-meubles?page={page}', Pages)
+            load(data, 'Furnished Apartments', '2', '102')
     else:  # Land For Sale
-        data = load_apartment_data('https://www.expat-dakar.com/terrains-a-vendre?page={page}', Pages)
-        load(data, 'Land For Sale', '3', '103')
+        with st.spinner('Scraping Land For Sale data, please wait...'):
+            data = load_apartment_data('https://www.expat-dakar.com/terrains-a-vendre?page={page}', Pages)
+            load(data, 'Land For Sale', '3', '103')
 
-elif Choices == 'Download scraped data':
-        if category == 'Rental Apartment':
-          with st.spinner(f"Scraping {category} data, please wait..."):
+elif Choices == 'Download the scraped data':
+    if category == 'Rental Apartment':
+        try:
             data = pd.read_csv('Apartment_1.csv')
-            load(data, 'Rental Apartment Data', '1', '101')
-        elif category == 'Furnished Apartments':
+            load(data, 'Rental Apartment', '1', '101')
+        except FileNotFoundError:
+            st.error('Data for Rental Apartment not found!')
+    elif category == 'Furnished Apartments':
+        try:
             data = pd.read_csv('Apartment_2.csv')
-            load(data, 'Furnished Apartments Data', '2', '102')
-        else:  # Land For Sale
+            load(data, 'Furnished Apartments', '2', '102')
+        except FileNotFoundError:
+            st.error('Data for Furnished Apartments not found!')
+    else:  # Land For Sale
+        try:
             data = pd.read_csv('Apartment_3.csv')
             load(data, 'Land For Sale', '3', '103')
-    
+        except FileNotFoundError:
+            st.error('Data for Land For Sale not found!')
 
-elif Choices == 'Dashboard of the data':
-
+elif Choices == 'Dashboard of the data(clean)':
+    try:
         if category == 'Rental Apartment':
             df = pd.read_csv('Url1.csv')
         elif category == 'Furnished Apartments':
@@ -183,12 +182,16 @@ elif Choices == 'Dashboard of the data':
         # Top Areas Pie Chart
         fig = px.pie(df, names='Area', title=f'Top Areas for {category}', hole=0.3)
         st.plotly_chart(fig)
-   
+    except FileNotFoundError:
+        st.error("CSV file not found. Please scrape the data first!")
+
 else:
-    st.markdown("<h3>Fill the Form Below</h3>", unsafe_allow_html=True)
+    # Embed the form
+    st.markdown("<h3>Please fill the Form Below</h3>", unsafe_allow_html=True)
     components.html(
         """
         <iframe src="https://ee.kobotoolbox.org/x/lgUh1tWb" width="800" height="1100"></iframe>
         """,
         height=1100,
-        width=800)
+        width=800,
+    )
